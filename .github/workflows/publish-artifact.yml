@@ -1,0 +1,79 @@
+name: Build artifacts and publish as GitHub release
+
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  build-artifact:
+    name: Build artifact
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        env: [ubuntu-64, macos-64, windows-64]
+        include:
+          - env: ubuntu-64
+            os: ubuntu-latest
+            toolchain: stable
+            target: x86_64-unknown-linux-gnu
+            binary: nexus
+            renamedBinary: nexus-x86_64-unknown-linux-gnu
+          - env: macos-64
+            os: macos-latest
+            toolchain: stable
+            target: x86_64-apple-darwin
+            binary: nexus
+            renamedBinary: nexus-x86_64-apple-darwin
+          - env: windows-64
+            os: windows-latest
+            toolchain: stable
+            target: x86_64-pc-windows-msvc
+            binary: nexus.exe
+            renamedBinary: nexus-x86_64-pc-windows-msvc.exe
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup toolchain ${{ matrix.toolchain}}-${{ matrix.target }} for ${{ matrix.os }}
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          target: ${{ matrix.target }}
+          cache: true
+      - name: Build using ${{ matrix.toolchain}}-${{ matrix.target }} for ${{ matrix.os }}
+        run: cargo build --release --all-features
+      - name: Rename binary
+        run: mv target/release/${{ matrix.binary }} target/release/${{ matrix.renamedBinary }}
+      - name: Store artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nexus-${{ matrix.os }}
+          path: target/release/${{ matrix.renamedBinary }}
+
+  publish-artifact:
+    name: Publish artifact
+    runs-on: ubuntu-latest
+    needs: build-artifact
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Download Linux artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: nexus-ubuntu-latest
+          path: target/release/
+      - name: Download macOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: nexus-macos-latest
+          path: target/release/
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: nexus-windows-latest
+          path: target/release/
+      - name: Read source branch version
+        run: echo "VERSION=$(cargo read-manifest | jq -r .version)" >> $GITHUB_ENV
+      - name: Create release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create "$VERSION" --repo="$GITHUB_REPOSITORY" --title="Release $VERSION" --generate-notes --latest "./target/release/nexus-x86_64-unknown-linux-gnu" "./target/release/nexus-x86_64-apple-darwin" "./target/release/nexus-x86_64-pc-windows-msvc.exe"

@@ -1,0 +1,33 @@
+name: Check version bump
+
+on:
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  check-version-bump:
+    name: Check version bump
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source branch
+        uses: actions/checkout@v4
+      - name: Setup Rust toolchain stable-x86_64-unknown-linux-gnu
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          target: x86_64-unknown-linux-gnu
+      - name: Read source branch version
+        run: echo "VERSION=$(cargo read-manifest | jq -r .version)" >> $GITHUB_ENV
+      - name: Checkout main branch
+        uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Read main branch version
+        run: echo "VERSION_MAIN=$(cargo read-manifest | jq -r .version)" >> $GITHUB_ENV
+      - name: Check for version bump
+        run: |
+          if [ "$VERSION_MAIN" == "$VERSION" ]; then
+            echo "No version bump detected"
+            exit 1
+          fi
+          echo "Version bump detected"

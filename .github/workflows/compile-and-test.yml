@@ -1,0 +1,39 @@
+name: Check for successful compilation
+
+on:
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  compile-and-test:
+    name: Compile and test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        env: [ubuntu-64, macos-64, windows-64]
+        include:
+          - env: ubuntu-64
+            os: ubuntu-latest
+            toolchain: stable
+            target: x86_64-unknown-linux-gnu
+          - env: macos-64
+            os: macos-latest
+            toolchain: stable
+            target: x86_64-apple-darwin
+          - env: windows-64
+            os: windows-latest
+            toolchain: stable
+            target: x86_64-pc-windows-msvc
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup toolchain ${{ matrix.toolchain}}-${{ matrix.target }} for ${{ matrix.os }}
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          target: ${{ matrix.target }}
+          cache: true
+      - name: Build using ${{ matrix.toolchain}}-${{ matrix.target }} for ${{ matrix.os }}
+        run: cargo build --release --all-features
+      - name: Test using ${{ matrix.toolchain}}-${{ matrix.target }} for ${{ matrix.os }}
+        run: cargo test --release --all-features
