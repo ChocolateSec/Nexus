@@ -1,9 +1,10 @@
-pub mod root;
-
 use rocket::routes;
 
-pub use root::get_index;
+pub mod modules;
+
+pub use modules::get_module;
+pub use modules::get_modules;
 
 pub fn routes() -> Vec<rocket::Route> {
-    routes![get_index]
+    routes![get_module, get_modules]
 }

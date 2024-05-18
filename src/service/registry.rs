@@ -8,7 +8,6 @@ use uuid::Uuid;
 use crate::model::Module;
 
 #[derive(Debug, Error)]
-#[error("Failed to refresh module registry")]
 pub enum RefreshError {
     #[error("Failed to fetch module registry: {0}")]
     ReqwestError(#[from] reqwest::Error),
@@ -72,11 +71,21 @@ impl Registry {
 
     async fn logging_refresh_if_needed(&self) {
         if self.needs_refresh().await {
-            info!("Refreshing module registry");
+            info!("Cache TTL reached, refreshing module registry");
+
             let result = self.refresh().await;
             if let Err(err) = result {
                 log::error!("Failed to refresh module registry: {}\nWill use existing cache until next refresh.", err);
+                return;
             }
+
+            let modules_len = self.modules.read().await.len();
+            let module_correct_noun = match modules_len {
+                1 => "module",
+                _ => "modules",
+            };
+
+            info!("Loaded {} {} into cache", modules_len, module_correct_noun);
         }
     }
 
@@ -92,16 +101,6 @@ impl Registry {
             .await
             .iter()
             .find(|module| module.uuid == uuid)
-            .cloned()
-    }
-
-    pub async fn get_module_by_name(&self, name: &str) -> Option<Module> {
-        self.logging_refresh_if_needed().await;
-        self.modules
-            .read()
-            .await
-            .iter()
-            .find(|module| module.name == name)
             .cloned()
     }
 }

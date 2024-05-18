@@ -1,4 +1,4 @@
-use std::{fmt::Display, time::Duration};
+use std::{fmt::Display, sync::Arc, time::Duration};
 
 use ::log::info;
 use service::Registry;
@@ -14,7 +14,6 @@ pub fn is_debug() -> bool {
 }
 
 #[derive(Debug, Error)]
-#[error("Failed to start Nexus")]
 pub enum NexusError {
     #[error("Logger is not set up")]
     LoggerNotSetUp,
@@ -25,41 +24,63 @@ pub enum NexusError {
 
 #[derive(Debug)]
 pub struct NexusArgs {
+    pub port: u16,
     pub registry_url: String,
+    pub registry_cache_ttl: Duration,
 }
 
 impl NexusArgs {
-    pub fn new(registry_url: String) -> Self {
-        NexusArgs { registry_url }
+    pub fn new(port: u16, registry_url: String, registry_cache_ttl: Duration) -> Self {
+        NexusArgs {
+            port,
+            registry_url,
+            registry_cache_ttl,
+        }
     }
 }
 
 impl Display for NexusArgs {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}", self.registry_url)
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "NexusArgs {{ port: {}, registry_url: {}, registry_cache_ttl: {:?} }}",
+            self.port, self.registry_url, self.registry_cache_ttl
+        )
     }
 }
 
 pub struct Nexus {
-    pub registry: Registry,
+    port: u16,
+    pub registry: Arc<Registry>,
 }
 
 impl Nexus {
     pub fn new(nexus_args: NexusArgs) -> Self {
         Nexus {
-            registry: Registry::new(nexus_args.registry_url, Duration::from_secs(60)),
+            port: nexus_args.port,
+            registry: Arc::new(Registry::new(
+                nexus_args.registry_url,
+                nexus_args.registry_cache_ttl,
+            )),
         }
     }
 
     pub async fn start(&self) -> Result<(), NexusError> {
         if !log::is_set_up() {
-            eprintln!("Logger is not set up");
             return Err(NexusError::LoggerNotSetUp);
         }
 
         info!("Starting Nexus");
 
-        let rocket = rocket::build().mount("/", controller::routes());
+        let config = rocket::Config {
+            port: self.port,
+            ..Default::default()
+        };
+
+        let rocket = rocket::build()
+            .configure(&config)
+            .manage(Arc::clone(&self.registry))
+            .mount("/", controller::routes());
 
         let result = rocket.launch().await;
         if let Err(err) = result {
