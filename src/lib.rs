@@ -1,4 +1,4 @@
-use std::{fmt::Display, sync::Arc, time::Duration};
+use std::{fmt::Display, net::IpAddr, sync::Arc, time::Duration};
 
 use ::log::info;
 use service::Registry;
@@ -24,14 +24,21 @@ pub enum NexusError {
 
 #[derive(Debug)]
 pub struct NexusArgs {
+    pub address: IpAddr,
     pub port: u16,
     pub registry_url: String,
     pub registry_cache_ttl: Duration,
 }
 
 impl NexusArgs {
-    pub fn new(port: u16, registry_url: String, registry_cache_ttl: Duration) -> Self {
+    pub fn new(
+        address: IpAddr,
+        port: u16,
+        registry_url: String,
+        registry_cache_ttl: Duration,
+    ) -> Self {
         NexusArgs {
+            address,
             port,
             registry_url,
             registry_cache_ttl,
@@ -50,6 +57,7 @@ impl Display for NexusArgs {
 }
 
 pub struct Nexus {
+    address: IpAddr,
     port: u16,
     pub registry: Arc<Registry>,
 }
@@ -57,6 +65,7 @@ pub struct Nexus {
 impl Nexus {
     pub fn new(nexus_args: NexusArgs) -> Self {
         Nexus {
+            address: nexus_args.address,
             port: nexus_args.port,
             registry: Arc::new(Registry::new(
                 nexus_args.registry_url,
@@ -73,6 +82,7 @@ impl Nexus {
         info!("Starting Nexus");
 
         let config = rocket::Config {
+            address: self.address,
             port: self.port,
             ..Default::default()
         };
