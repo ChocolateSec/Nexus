@@ -2,7 +2,7 @@ name: Check for successful compilation
 
 on:
   pull_request:
-    branches: ["main"]
+    branches: ["main", "staging"]
 
 jobs:
   compile-and-test:
