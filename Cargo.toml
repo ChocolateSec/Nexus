@@ -7,7 +7,7 @@ edition = "2021"
 clap = "4.5.7"
 fern = { version = "0.6.2", features = ["colored"] }
 humantime = "2.1.0"
-log = { version = "0.4.21", features = ["serde"] }
+log = { version = "0.4.22", features = ["serde"] }
 reqwest = "0.12.5"
 rocket = { version = "0.5.1", features = ["json"] }
 semver = { version = "1.0.23", features = ["serde"] }
